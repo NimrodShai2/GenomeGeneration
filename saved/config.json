@@ -1,1 +1,9 @@
-{"chunk_size": 1000, "k": 6, "latent_dim": 32, "embed_dim": 64, "hidden_dim": 128, "seq_len": 995}
+{
+  "chunk_size": 1000,
+  "k": 6,
+  "latent_dim": 32,
+  "embed_dim": 64,
+  "hidden_dim": 128,
+  "seq_len": 995,
+  "stride": 500
+}

@@ -1,0 +1,9 @@
+{
+    "chunk_count": 1000,
+    "mean_gc": 42.429300000000005,
+    "std_gc": 4.460086491313818,
+    "chunk_length": 1000,
+    "raw_fasta_mean_length": 78943.4645,
+    "raw_fasta_std_length": 351807.5788883232,
+    "raw_fasta_count": 2000
+}

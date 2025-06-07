@@ -94,6 +94,12 @@ def train():
             "embed_dim": EMBED_DIM,
             "hidden_dim": HIDDEN_DIM,
             "seq_len": CHUNK_SIZE - K + 1,
+            "stride": STRIDE,
+            "vocab_size": len(vocab),
+            "batch_size": BATCH_SIZE,
+            "epochs": EPOCHS,
+            "device": str(DEVICE),
+            "fasta_file": FASTA_FILE
         }, f)
 
 
