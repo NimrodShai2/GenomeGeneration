@@ -11,7 +11,7 @@ In microbial genomics, species exhibit genomic diversity due to rapid evolution,
 This project aims to:
 
 - Model intra-species genomic diversity through deep generative modeling  
-- Generate novel, biologically plausible genome sequences  
+- Generate novel, biologically plausible genome sequences (this is still an open problem)
 - Provide synthetic genomes for simulating genomic evolution, validating bioinformatics pipelines, and augmenting reference genome collections  
 
 ---
@@ -28,27 +28,28 @@ This project aims to:
 
 ## 📂 Project Structure
 
-- project_root/  
-    - preprocess_fasta.py        # Extract and tokenize DNA chunks  
-    - train_vae.py               # Train the VAE model  
-    - generate_vae.py            # Generate synthetic genomes (samples length from input distribution)  
-    - analyze_fasta.py           # Analyze latent space and sequence stats for any FASTA  
-    - saved/                     
-        - model.pt               # Trained PyTorch model weights  
-        - vocab.json             # k-mer vocabulary  
-        - config.json            # Model configuration  
-    - analysis/                  # Output directory for plots and stats  
-    - input.fasta                # User-provided input genomes  
+project_root/  
+├── preprocess_fasta.py        # Extract and tokenize DNA chunks  
+├── vae_model.py               # VAE class definition  
+├── train_vae.py               # Train the VAE model (CLI parameters)  
+├── generate_vae.py            # Generate synthetic genomes (samples length from input distribution)  
+├── analyze_fasta.py           # Analyze latent space and sequence stats for any FASTA  
+├── saved/                     
+│   ├── model.pt               # Trained PyTorch model weights  
+│   ├── vocab.json             # k-mer vocabulary  
+│   └── config.json            # Model configuration  
+├── analysis/                  # Output directory for plots and stats  
+└── input.fasta                # User-provided input genomes  
 
 ---
 
 ## 🚀 Quickstart Guide
 
-### Step 1: Install Dependencies
+### 1. Install Dependencies
 
     pip install biopython torch numpy pandas tqdm matplotlib seaborn umap-learn scikit-learn
 
-### Step 2: Prepare Your Input FASTA
+### 2. Prepare Your Input FASTA
 
 Provide a file named `input.fasta` containing multiple genomic sequences. Example:
 
@@ -57,70 +58,83 @@ Provide a file named `input.fasta` containing multiple genomic sequences. Exampl
     >genome2
     CGATGCTAGCTAGCTGATCGA...
 
-### Step 3: Preprocess and Train the VAE
+### 3. Preprocess and Train the VAE
 
-    python train_vae.py
+Run the training script with default parameters or override via CLI flags:
 
-This will:
+    python train_vae.py \
+      --fasta_file input.fasta \
+      --chunk_size 1000 \
+      --stride 500 \
+      --k 6 \
+      --latent_dim 32 \
+      --embed_dim 64 \
+      --hidden_dim 128 \
+      --batch_size 64 \
+      --epochs 10 \
+      --lr 0.001 \
+      --save_dir saved
 
-- Extract fixed-length DNA chunks (e.g. 1000 bp windows)  
-- Tokenize each chunk into k-mers  
-- Train the VAE for a fixed number of epochs  
-- Save artifacts in `saved/`  
+**Training Script Arguments**  
+- `--fasta_file` (str, default=`input.fasta`): Path to multi-genome FASTA file  
+- `--chunk_size` (int, default=`1000`): Length of each DNA chunk (bp)  
+- `--stride` (int, default=`500`): Step size between chunks (bp)  
+- `--k` (int, default=`6`): k-mer size for tokenization  
+- `--latent_dim` (int, default=`32`): Dimensionality of the latent space  
+- `--embed_dim` (int, default=`64`): Dimension of k-mer embeddings  
+- `--hidden_dim` (int, default=`128`): Hidden layer size for encoder/decoder  
+- `--batch_size` (int, default=`64`): Number of samples per training batch  
+- `--epochs` (int, default=`10`): Number of training epochs  
+- `--lr` (float, default=`1e-3`): Learning rate for optimizer  
+- `--save_dir` (str, default=`saved`): Directory to save model weights and config  
 
-### Step 4: Generate Synthetic Genomes
+### 4. Generate Synthetic Genomes
 
-Now generate variable-length genomes by sampling real genome lengths:
+Generate variable-length genomes by sampling real genome lengths:
 
-    python generate_vae.py --num_genomes 100 --input_fasta input.fasta --output generated.fasta
+    python generate_vae.py \
+      --num_genomes 100 \
+      --input_fasta input.fasta \
+      --output generated.fasta
 
-Each synthetic genome will have its length drawn at random from the lengths in `input.fasta`.
+Each synthetic genome’s length is drawn at random from the lengths in `input.fasta`.
 
----
+### 5. Analyze Sequences
 
-## 📊 Analysis
+Use the same analysis script for both real and generated FASTA files.
 
-Use the same script to analyze real or generated FASTA files.
+**Real (chunked) sequences**
 
-### Analyze real (chunked) sequences
+    python analyze_fasta.py \
+      --fasta input.fasta \
+      --tag real \
+      --mode chunked \
+      --max 1000
 
-    python analyze_fasta.py --fasta input.fasta --tag real --mode chunked --max 1000
+**Generated (full) sequences**
 
-### Analyze generated (full) sequences
-
-    python analyze_fasta.py --fasta generated.fasta --tag generated --mode full
+    python analyze_fasta.py \
+      --fasta generated.fasta \
+      --tag generated \
+      --mode full \
+      --max 1000
 
 Outputs in `analysis/`:
 
-- `<tag>_metadata.csv` — per-sequence GC%, length, UMAP coordinates  
-- `<tag>_umap_gc.png` — UMAP projection colored by GC%  
-- `<tag>_gc_distribution.png` — GC% histogram  
-- `<tag>_length_distribution.png` — length histogram  
-- `<tag>_stats.json` — summary statistics  
+- `real_metadata.csv` / `generated_metadata.csv` — per-sequence GC%, length, UMAP coordinates  
+- `real_umap_gc.png` / `generated_umap_gc.png` — UMAP projection colored by GC%  
+- `real_gc_distribution.png` / `generated_gc_distribution.png` — GC% histogram  
+- `real_length_distribution.png` / `generated_length_distribution.png` — length histogram  
+- `real_stats.json` / `generated_stats.json` — summary statistics  
 
 ---
 
 ## 🛠️ How the VAE Works
 
-1. **Encoder**: Embeds k-mer tokens and compresses them into latent vectors (μ, σ²).  
-2. **Reparameterization Trick**: Samples z = μ + σ × ε (ε ∼ N(0,1)) in a differentiable way.  
-3. **Decoder**: Maps z back to k-mer sequences via a feedforward network.  
-4. **Loss**: Combines cross-entropy reconstruction loss with KL divergence against N(0, I).
-
----
-
-## 🔧 Configuration Parameters
-
-Edit `train_vae.py` or override via command line:
-
-- CHUNK_SIZE: DNA chunk length (default 1000)  
-- STRIDE: Step between chunks (default 500)  
-- K: k-mer length (default 6)  
-- LATENT_DIM: Size of latent space (default 32)  
-- EMBED_DIM: k-mer embedding size (default 64)  
-- HIDDEN_DIM: Hidden layer size (default 128)  
-- BATCH_SIZE: Training batch size (default 64)  
-- EPOCHS: Number of training epochs (default 10)  
+1. Encoder embeds k-mer tokens and compresses them into latent vectors (μ, σ²).  
+2. Reparameterization trick: sample z = μ + σ × ε (ε ∼ N(0,1)) in a differentiable way.  
+3. Decoder maps z back to k-mer sequences via a feedforward network.  
+4. Loss combines cross-entropy reconstruction loss with KL divergence against N(0,I).
 
 ---
 
