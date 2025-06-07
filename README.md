@@ -6,138 +6,149 @@ A Variational Autoencoder (VAE)-based generative model for synthesizing novel mi
 
 ## 🧪 Biological Motivation
 
-In microbial genomics, species exhibit genomic diversity due to rapid evolution, mutations, horizontal gene transfer, and structural variations. Traditional genomic databases often undersample this diversity.
+In microbial genomics, species exhibit genomic diversity due to rapid evolution, mutations, horizontal gene transfer and structural variations. Traditional genomic databases often undersample this diversity.
 
 This project aims to:
 
-- Model intra-species genomic diversity through deep generative modeling.
-- Generate novel, biologically plausible genome sequences.
-- Provide synthetic genomes for simulating genomic evolution, validating bioinformatics pipelines, and augmenting reference genome collections.
+- Model intra-species genomic diversity through deep generative modeling  
+- Generate novel, biologically plausible genome sequences  
+- Provide synthetic genomes for simulating genomic evolution, validating bioinformatics pipelines, and augmenting reference genome collections  
 
 ---
 
 ## 🧠 Technology Stack
 
-- **Python** for scripting.
-- **Biopython** for FASTA processing and sequence manipulation.
-- **PyTorch** for building and training the Variational Autoencoder.
-- **k-mer Tokenization** to efficiently represent DNA sequences.
+- Python for scripting  
+- Biopython for FASTA processing and sequence manipulation  
+- PyTorch for building and training the Variational Autoencoder  
+- k-mer tokenization to efficiently represent DNA sequences  
+- UMAP, Matplotlib and Seaborn for visualization of latent space and sequence statistics  
 
 ---
 
 ## 📂 Project Structure
 
-```
-project/
-├── preprocess_fasta.py        # Process FASTA into tokenized sequences
-├── train_vae.py               # Train the Variational Autoencoder
-├── generate_vae.py            # Generate synthetic genome sequences
-├── saved/
-│   ├── model.pt               # Trained PyTorch model
-│   ├── vocab.json             # k-mer vocabulary
-│   └── config.json            # Model configurations
-└── input.fasta                # User-provided input genomes
-```
+- project_root/  
+    - preprocess_fasta.py        # Extract and tokenize DNA chunks  
+    - train_vae.py               # Train the VAE model  
+    - generate_vae.py            # Generate synthetic genomes (samples length from input distribution)  
+    - analyze_fasta.py           # Analyze latent space and sequence stats for any FASTA  
+    - saved/                     
+        - model.pt               # Trained PyTorch model weights  
+        - vocab.json             # k-mer vocabulary  
+        - config.json            # Model configuration  
+    - analysis/                  # Output directory for plots and stats  
+    - input.fasta                # User-provided input genomes  
 
 ---
 
 ## 🚀 Quickstart Guide
 
-### 📌 Step 1: Install Dependencies
+### Step 1: Install Dependencies
 
-```bash
-pip install biopython torch numpy pandas tqdm matplotlib seaborn umap-learn scikit-learn
-```
+    pip install biopython torch numpy pandas tqdm matplotlib seaborn umap-learn scikit-learn
 
-### 📌 Step 2: Prepare Your Input FASTA
+### Step 2: Prepare Your Input FASTA
 
-Provide a FASTA file named `input.fasta` with multiple genomic sequences. Example:
+Provide a file named `input.fasta` containing multiple genomic sequences. Example:
 
-```fasta
->genome1
-ATGCGTAGCTAGCTACGATCG...
->genome2
-CGATGCTAGCTAGCTGATCGA...
-```
+    >genome1
+    ATGCGTAGCTAGCTACGATCG...
+    >genome2
+    CGATGCTAGCTAGCTGATCGA...
 
-### 📌 Step 3: Preprocess and Train the VAE
+### Step 3: Preprocess and Train the VAE
 
-```bash
-python train_vae.py
-```
+    python train_vae.py
 
-This script:
+This will:
 
-- Extracts DNA chunks.
-- Tokenizes sequences into k-mers.
-- Trains the VAE model.
-- Saves model artifacts to `saved/`.
+- Extract fixed-length DNA chunks (e.g. 1000 bp windows)  
+- Tokenize each chunk into k-mers  
+- Train the VAE for a fixed number of epochs  
+- Save artifacts in `saved/`  
 
-### 📌 Step 4: Generate Synthetic Genomes
+### Step 4: Generate Synthetic Genomes
 
-After training, generate sequences:
+Now generate variable-length genomes by sampling real genome lengths:
 
-```bash
-python generate_vae.py --num_samples 100 --output generated.fasta
-```
+    python generate_vae.py --num_genomes 100 --input_fasta input.fasta --output generated.fasta
 
-This produces a new FASTA file (`generated.fasta`) containing synthetic genomic sequences.
+Each synthetic genome will have its length drawn at random from the lengths in `input.fasta`.
+
+---
+
+## 📊 Analysis
+
+Use the same script to analyze real or generated FASTA files.
+
+### Analyze real (chunked) sequences
+
+    python analyze_fasta.py --fasta input.fasta --tag real --mode chunked --max 1000
+
+### Analyze generated (full) sequences
+
+    python analyze_fasta.py --fasta generated.fasta --tag generated --mode full
+
+Outputs in `analysis/`:
+
+- `<tag>_metadata.csv` — per-sequence GC%, length, UMAP coordinates  
+- `<tag>_umap_gc.png` — UMAP projection colored by GC%  
+- `<tag>_gc_distribution.png` — GC% histogram  
+- `<tag>_length_distribution.png` — length histogram  
+- `<tag>_stats.json` — summary statistics  
 
 ---
 
 ## 🛠️ How the VAE Works
 
-- **Encoder**: Compresses DNA sequences into a latent representation (mean `μ` and variance `σ²`).
-- **Reparameterization Trick**: Samples latent vector `z` from the latent distribution in a differentiable manner:
-  ```
-  z = μ + σ × ε,  ε ~ N(0,1)
-  ```
-- **Decoder**: Decodes `z` into DNA sequences.
-- **Loss Function**:
-  - **Reconstruction loss** (Cross-entropy): Measures decoding accuracy.
-  - **KL divergence**: Regularizes latent space distribution toward standard normal.
+1. **Encoder**: Embeds k-mer tokens and compresses them into latent vectors (μ, σ²).  
+2. **Reparameterization Trick**: Samples z = μ + σ × ε (ε ∼ N(0,1)) in a differentiable way.  
+3. **Decoder**: Maps z back to k-mer sequences via a feedforward network.  
+4. **Loss**: Combines cross-entropy reconstruction loss with KL divergence against N(0, I).
 
 ---
 
 ## 🔧 Configuration Parameters
 
-Modify these directly in `train_vae.py`:
+Edit `train_vae.py` or override via command line:
 
-- `CHUNK_SIZE`: DNA chunk length (default: 1000)
-- `STRIDE`: Step size between chunks (default: 500)
-- `K`: k-mer length (default: 6)
-- `LATENT_DIM`: Latent vector size (default: 32)
-- `EMBED_DIM`: Embedding dimension for k-mers (default: 64)
-- `HIDDEN_DIM`: Encoder/decoder hidden dimension (default: 128)
-- `BATCH_SIZE`: Training batch size (default: 64)
-- `EPOCHS`: Number of training epochs (default: 10)
+- CHUNK_SIZE: DNA chunk length (default 1000)  
+- STRIDE: Step between chunks (default 500)  
+- K: k-mer length (default 6)  
+- LATENT_DIM: Size of latent space (default 32)  
+- EMBED_DIM: k-mer embedding size (default 64)  
+- HIDDEN_DIM: Hidden layer size (default 128)  
+- BATCH_SIZE: Training batch size (default 64)  
+- EPOCHS: Number of training epochs (default 10)  
 
 ---
 
-## 📈 Evaluating Generated Genomes (Optional)
+## 📈 Evaluating Generated Genomes
 
-- **Mash or FastANI**: Compare synthetic and real genome distances.
-- **Codon usage and GC content analysis**.
-- **Visualize latent space**: Use t-SNE or UMAP.
+- Mash or FastANI for distance comparisons  
+- Codon usage and GC content analysis  
+- UMAP or t-SNE for latent space visualization  
 
 ---
 
 ## 📚 References
 
-- Kingma & Welling (2013). [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114).
-- Zou et al. (2020). [Microbiome Dynamics](https://www.nature.com/articles/s41576-020-00291-8).
-- Sharma et al. (2018). [DNA2vec](https://academic.oup.com/bioinformatics/article/34/15/i68/5045761).
+- Kingma & Welling (2013) Auto-Encoding Variational Bayes  
+- Zou et al. (2020) Microbiome Dynamics  
+- Sharma et al. (2018) DNA2vec  
 
 ---
 
 ## 📝 License
 
-This project is distributed under the MIT License.
+MIT License  
 
 ---
 
 ## 🙌 Acknowledgments
 
-- BV-BRC & UHGG databases for genomic data.
-- PyTorch and Biopython communities for excellent tools.
+- BV-BRC and UHGG for genomic data  
+- PyTorch and Biopython communities for their tools  
 
+Enjoy exploring microbial genome generation!  

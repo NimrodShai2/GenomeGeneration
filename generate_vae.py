@@ -1,6 +1,8 @@
 import torch
 import json
 import argparse
+import numpy as np
+from Bio import SeqIO
 from tqdm import tqdm
 import vae_model
 
@@ -26,9 +28,17 @@ def sample_softmax(logits):
 
 
 # -------------------------------
+# Load the lengths of the input sequences
+# -------------------------------
+def load_real_lengths(fasta_path):
+    return [len(rec.seq) for rec in SeqIO.parse(fasta_path, "fasta")
+            if "N" not in rec.seq and len(rec.seq) > 1000]
+
+
+# -------------------------------
 # Main Generation Function
 # -------------------------------
-def generate(num_genomes, genome_length, output_path):
+def generate(num_genomes, input_fasta, output_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load config and vocab
@@ -40,8 +50,12 @@ def generate(num_genomes, genome_length, output_path):
     inv_vocab = {str(v): k for k, v in vocab.items()}
     k = cfg["k"]
     chunk_len = cfg["seq_len"] + k - 1
-    chunks_per_genome = (genome_length + chunk_len - 1) // chunk_len
 
+    # Load input length distribution
+    real_lengths = load_real_lengths(input_fasta)
+    print(f"Loaded {len(real_lengths)} real genome lengths for sampling.")
+
+    # Load model
     model = vae_model.VAE(
         vocab_size=len(vocab),
         embed_dim=cfg["embed_dim"],
@@ -54,18 +68,22 @@ def generate(num_genomes, genome_length, output_path):
 
     with open(output_path, "w") as f:
         for i in tqdm(range(num_genomes), desc="Generating genomes"):
+            target_length = np.random.choice(real_lengths)  # Sample a length from the real genome lengths
+            chunks_needed = (target_length + chunk_len - 1) // chunk_len
+
             dna_parts = []
-            for _ in range(chunks_per_genome):
+            for _ in range(chunks_needed):
                 with torch.no_grad():
                     z = torch.randn((1, cfg["latent_dim"])).to(device)
                     logits = model.decode(z).squeeze(0)  # [seq_len, vocab_size]
                     tokens = sample_softmax(logits).cpu().tolist()
                     chunk_dna = tokens_to_dna(tokens, inv_vocab, k)
                     dna_parts.append(chunk_dna)
-            full_dna = ''.join(dna_parts)[:genome_length]
-            f.write(f">genome_{i}\n{full_dna}\n")
 
-    print(f"[✓] Generated {num_genomes} synthetic genomes (~{genome_length} bp each) to {output_path}")
+            genome = ''.join(dna_parts)[:target_length]
+            f.write(f">genome_{i}_length_{target_length}\n{genome}\n")
+
+    print(f"[✓] Generated {num_genomes} variable-length genomes to {output_path}")
 
 
 # -------------------------------
@@ -74,7 +92,8 @@ def generate(num_genomes, genome_length, output_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--num_genomes", type=int, default=10, help="Number of synthetic genomes to generate")
-    parser.add_argument("--length", type=int, default=50000, help="Target length per genome in base pairs")
+    parser.add_argument("--input_fasta", type=str, default="real_genomes.fasta",
+                        help="Input FASTA file for real genome lengths", required=True)
     parser.add_argument("--output", type=str, default="generated.fasta", help="Output FASTA file path")
     args = parser.parse_args()
-    generate(args.num_genomes, args.length, args.output)
+    generate(args.num_genomes, args.input_fasta, args.output)
