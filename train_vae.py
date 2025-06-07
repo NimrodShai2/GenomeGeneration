@@ -7,6 +7,8 @@ import json
 import os
 from tqdm import tqdm
 
+from vae_model import VAE
+
 # -------------------------------
 # Config
 # -------------------------------
@@ -39,61 +41,6 @@ class KmerDataset(Dataset):
     def __getitem__(self, idx):
         x = torch.tensor(self.data[idx], dtype=torch.long)
         return x
-
-
-# -------------------------------
-# VAE Model
-# -------------------------------
-class VAE(nn.Module):
-    """
-    Variational Autoencoder for DNA sequences using k-mer embeddings.
-    """
-
-    def __init__(self, vocab_size, embed_dim, hidden_dim, latent_dim, seq_len):
-        super(VAE, self).__init__()
-        self.embedding = nn.Embedding(vocab_size + 1, embed_dim)  # +1 for unknown
-        self.encoder = nn.Sequential(
-            nn.Linear(embed_dim * seq_len, hidden_dim),
-            nn.ReLU(),
-        )
-        self.fc_mu = nn.Linear(hidden_dim, latent_dim)  # mean of the latent space
-        self.fc_logvar = nn.Linear(hidden_dim, latent_dim)  # log variance of the latent space
-        self.decoder_fc = nn.Sequential(
-            nn.Linear(latent_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, embed_dim * seq_len),
-        )
-        self.output = nn.Linear(embed_dim, vocab_size)  # token-by-token
-
-        self.seq_len = seq_len  # Length of the sequence after k-mer extraction
-        self.embed_dim = embed_dim  # Dimension of the embedding space
-
-    def encode(self, x):
-        """Encode input sequence into latent space parameters."""
-        embedded = self.embedding(x).view(x.size(0), -1)
-        h = self.encoder(embedded)
-        mu = self.fc_mu(h)
-        logvar = self.fc_logvar(h)
-        return mu, logvar
-
-    def reparameterize(self, mu, logvar):
-        """Reparameterization trick to sample from the latent space."""
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        return mu + eps * std
-
-    def decode(self, z):
-        """Decode latent space sample back to sequence."""
-        out = self.decoder_fc(z)
-        out = out.view(-1, self.seq_len, self.embed_dim)
-        return self.output(out)
-
-    def forward(self, x):
-        """Forward pass through the VAE."""
-        mu, logvar = self.encode(x)
-        z = self.reparameterize(mu, logvar)
-        recon = self.decode(z)
-        return recon, mu, logvar
 
 
 # -------------------------------

@@ -1,36 +1,8 @@
 import torch
-import torch.nn as nn
 import json
 import argparse
 from tqdm import tqdm
-
-
-# -------------------------------
-# Reconstruct VAE Model
-# -------------------------------
-class VAE(nn.Module):
-    def __init__(self, vocab_size, embed_dim, hidden_dim, latent_dim, seq_len):
-        super(VAE, self).__init__()
-        self.embedding = nn.Embedding(vocab_size + 1, embed_dim)
-        self.encoder = nn.Sequential(
-            nn.Linear(embed_dim * seq_len, hidden_dim),
-            nn.ReLU(),
-        )
-        self.fc_mu = nn.Linear(hidden_dim, latent_dim)
-        self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
-        self.decoder_fc = nn.Sequential(
-            nn.Linear(latent_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, embed_dim * seq_len),
-        )
-        self.output = nn.Linear(embed_dim, vocab_size)
-        self.seq_len = seq_len
-        self.embed_dim = embed_dim
-
-    def decode(self, z):
-        out = self.decoder_fc(z)
-        out = out.view(-1, self.seq_len, self.embed_dim)
-        return self.output(out)
+import vae_model
 
 
 # -------------------------------
@@ -70,7 +42,7 @@ def generate(num_genomes, genome_length, output_path):
     chunk_len = cfg["seq_len"] + k - 1
     chunks_per_genome = (genome_length + chunk_len - 1) // chunk_len
 
-    model = VAE(
+    model = vae_model.VAE(
         vocab_size=len(vocab),
         embed_dim=cfg["embed_dim"],
         hidden_dim=cfg["hidden_dim"],
