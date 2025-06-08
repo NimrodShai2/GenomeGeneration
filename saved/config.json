@@ -1,9 +1,16 @@
 {
-  "chunk_size": 1000,
-  "k": 6,
-  "latent_dim": 32,
-  "embed_dim": 64,
-  "hidden_dim": 128,
-  "seq_len": 995,
-  "stride": 500
+    "fasta_file": "P_Dorei_Genomes/P_Dorei_genome_sequence.fasta",
+    "chunk_size": 1001,
+    "stride": 500,
+    "k": 6,
+    "latent_dim": 32,
+    "embed_dim": 64,
+    "hidden_dim": 128,
+    "seq_len": 996,
+    "vocab_size": 4096,
+    "batch_size": 64,
+    "epochs": 2,
+    "lr": 0.001,
+    "device": "cpu",
+    "model_type": "conv"
 }

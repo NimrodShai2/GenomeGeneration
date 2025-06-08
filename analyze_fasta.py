@@ -8,6 +8,8 @@ import pandas as pd
 from tqdm import tqdm
 from Bio import SeqIO
 import umap
+
+from model_factory import get_model
 from vae_model import VAE
 from preprocess_fasta import build_kmer_vocab, tokenize_chunks
 
@@ -27,15 +29,17 @@ def analyze_fasta(fasta_file, tag="real", mode="chunked", max_sequences=1000):
     with open("saved/vocab.json") as f:
         vocab = json.load(f)
 
-    model = VAE(
+    model = get_model(
+        model_type=cfg["model_type"],
         vocab_size=len(vocab),
         embed_dim=cfg["embed_dim"],
         hidden_dim=cfg["hidden_dim"],
         latent_dim=cfg["latent_dim"],
-        seq_len=cfg["seq_len"]
+        seq_len=cfg["chunk_size"] - cfg["k"] + 1
     ).to(device)
     model.load_state_dict(torch.load("saved/model.pt", map_location=device))
-    model.eval()
+
+
 
     # -------------------------------
     # Load sequences
