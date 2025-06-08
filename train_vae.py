@@ -9,7 +9,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 
 from preprocess_fasta import extract_chunks_from_fasta, build_kmer_vocab, tokenize_chunks
-from vae_model import VAE
+from vae_model import ConvVAE
 
 
 # -------------------------------
@@ -44,6 +44,15 @@ def train(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     os.makedirs(args.save_dir, exist_ok=True)
 
+    # ensure (chunk_size - k + 1) is divisible by 4
+    adjusted_seq_len = (args.chunk_size - args.k + 1)
+    remainder = adjusted_seq_len % 4
+    if remainder != 0:
+        adjustment = 4 - remainder
+        args.chunk_size += adjustment
+        print(
+            f"[!] Adjusted chunk_size to {args.chunk_size} so that seq_len={args.chunk_size - args.k + 1} is divisible by 4.")
+
     print("Preprocessing...", flush=True)
     chunks = extract_chunks_from_fasta(args.fasta_file,
                                        chunk_size=args.chunk_size,
@@ -54,11 +63,10 @@ def train(args):
     dataset = KmerDataset(tokenized)
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    model = VAE(vocab_size=len(vocab),
-                embed_dim=args.embed_dim,
-                hidden_dim=args.hidden_dim,
-                latent_dim=args.latent_dim,
-                seq_len=args.chunk_size - args.k + 1).to(device)
+    model = ConvVAE(vocab_size=len(vocab),
+                    embed_dim=args.embed_dim,
+                    latent_dim=args.latent_dim,
+                    seq_len=args.chunk_size - args.k + 1).to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     print("Training...", flush=True)
