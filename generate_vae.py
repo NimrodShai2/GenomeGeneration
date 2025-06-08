@@ -5,6 +5,7 @@ import numpy as np
 from Bio import SeqIO
 from tqdm import tqdm
 import vae_model
+from model_factory import get_model
 
 
 # -------------------------------
@@ -56,9 +57,11 @@ def generate(num_genomes, input_fasta, output_path):
     print(f"Loaded {len(real_lengths)} real genome lengths for sampling.")
 
     # Load model
-    model = vae_model.ConvVAE(
+    model = get_model(
+        model_type=cfg["model_type"],
         vocab_size=len(vocab),
         embed_dim=cfg["embed_dim"],
+        hidden_dim=cfg["hidden_dim"],
         latent_dim=cfg["latent_dim"],
         seq_len=cfg["seq_len"]
     ).to(device)

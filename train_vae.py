@@ -8,8 +8,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 
+from model_factory import get_model
 from preprocess_fasta import extract_chunks_from_fasta, build_kmer_vocab, tokenize_chunks
-from vae_model import ConvVAE
 
 
 # -------------------------------
@@ -63,10 +63,14 @@ def train(args):
     dataset = KmerDataset(tokenized)
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    model = ConvVAE(vocab_size=len(vocab),
-                    embed_dim=args.embed_dim,
-                    latent_dim=args.latent_dim,
-                    seq_len=args.chunk_size - args.k + 1).to(device)
+    model = get_model(
+        model_type=args.model_type,
+        vocab_size=len(vocab),
+        embed_dim=args.embed_dim,
+        hidden_dim=args.hidden_dim,
+        latent_dim=args.latent_dim,
+        seq_len=args.chunk_size - args.k + 1
+    ).to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     print("Training...", flush=True)
@@ -100,7 +104,8 @@ def train(args):
         "batch_size": args.batch_size,
         "epochs": args.epochs,
         "lr": args.lr,
-        "device": str(device)
+        "device": str(device),
+        "model_type": args.model_type
     }
     with open(os.path.join(args.save_dir, "config.json"), "w") as f:
         json.dump(config, f, indent=4)
@@ -118,6 +123,8 @@ if __name__ == "__main__":
                         help="Length of each DNA chunk (bp)")
     parser.add_argument("--stride", type=int, default=500,
                         help="Stride between chunks (bp)")
+    parser.add_argument("--model_type", type=str, choices=["conv", "vae"], default="conv",
+                        help="Type of VAE model to use: 'conv' for Convolutional VAE, 'vae' for feedforward VAE")
     parser.add_argument("--k", type=int, default=6,
                         help="k-mer size for tokenization")
     parser.add_argument("--latent_dim", type=int, default=32,
@@ -125,7 +132,7 @@ if __name__ == "__main__":
     parser.add_argument("--embed_dim", type=int, default=64,
                         help="Dimension of k-mer embeddings")
     parser.add_argument("--hidden_dim", type=int, default=128,
-                        help="Hidden layer size for encoder/decoder")
+                        help="Hidden layer size for encoder/decoder (if applicable)")
     parser.add_argument("--batch_size", type=int, default=64,
                         help="Training batch size")
     parser.add_argument("--epochs", type=int, default=10,
